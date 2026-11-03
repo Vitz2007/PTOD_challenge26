@@ -1,7 +1,8 @@
 # Frontend
 
-Starter React app for Low-burden Mode Accessibility. It is deliberately plain
-(no styling, no UI library), so the frontend team can choose their own.
+React app for Low-burden Mode Accessibility: station search and details, plus a
+Leaflet map for step-free paths. Libraries: React, Leaflet (`react-leaflet`) and
+React Query.
 
 ## Run it
 
@@ -26,7 +27,9 @@ and restart the backend.
 ```
 src/
 ├── main.jsx                   # Mounts <App />
-├── App.jsx                    # The page: search box, then station details
+├── App.jsx                    # The page: search box, station details, map
+├── StationMap.jsx             # Leaflet map of step-free paths (sample HokoNavi data for now)
+├── hooks/useStationData.js    # React Query hook for facilities (not wired up yet)
 ├── api/
 │   ├── client.js              # Every backend call (getStations, getStation, getServiceStatus)
 │   └── useApi.js              # Hook: { data, error, loading } for any API call
