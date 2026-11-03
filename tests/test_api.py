@@ -28,8 +28,38 @@ FAKE_SURVEYS = {
     vocab.operator_id("Keio"): [survey("Keio", KEIO_LINE, 700000)],
 }
 FAKE_STATIONS = [
-    {"owl:sameAs": "odpt.Station:JR-East.Yamanote.Shinjuku", "dc:title": "新宿", "odpt:stationTitle": {"en": "Shinjuku"}},
-    {"owl:sameAs": "odpt.Station:Keio.Keio.Shinjuku", "dc:title": "新宿", "odpt:stationTitle": {"en": "Shinjuku"}},
+    {
+        "owl:sameAs": "odpt.Station:JR-East.Yamanote.Shinjuku",
+        "dc:title": "新宿",
+        "odpt:stationTitle": {"en": "Shinjuku"},
+        "geo:lat": 35.69,
+        "geo:long": 139.70,
+    },
+    # Same station on a second line: should give only one map point
+    {
+        "owl:sameAs": "odpt.Station:JR-East.ChuoRapid.Shinjuku",
+        "dc:title": "新宿",
+        "odpt:stationTitle": {"en": "Shinjuku"},
+        "geo:lat": 35.69,
+        "geo:long": 139.70,
+    },
+    # No passenger survey
+    {
+        "owl:sameAs": "odpt.Station:JR-East.Yamanote.Yoyogi",
+        "dc:title": "代々木",
+        "odpt:stationTitle": {"en": "Yoyogi"},
+        "geo:lat": 35.68,
+        "geo:long": 139.70,
+    },
+    # No coordinates: left off the map
+    {"owl:sameAs": "odpt.Station:JR-East.Yamanote.Nowhere", "dc:title": "なし", "odpt:stationTitle": {"en": "Nowhere"}},
+    {
+        "owl:sameAs": "odpt.Station:Keio.Keio.Shinjuku",
+        "dc:title": "新宿",
+        "odpt:stationTitle": {"en": "Shinjuku"},
+        "geo:lat": 35.69,
+        "geo:long": 139.70,
+    },
 ]
 FAKE_TRAINS = [{"odpt:railway": JR_LINE, "odpt:delay": 180}, {"odpt:railway": KEIO_LINE, "odpt:delay": 60}]
 FAKE_STATUS = [
@@ -49,8 +79,10 @@ class FakeODPTClient:
         if data_type == vocab.PASSENGER_SURVEY:
             return FAKE_SURVEYS.get(filters["odpt:operator"], [])
         if data_type == vocab.STATION:
-            same_as = filters.get("owl:sameAs")
-            return [s for s in FAKE_STATIONS if same_as in (None, s["owl:sameAs"])]
+            if "owl:sameAs" in filters:
+                return [s for s in FAKE_STATIONS if s["owl:sameAs"] == filters["owl:sameAs"]]
+            code = filters["odpt:operator"].split(":")[1]
+            return [s for s in FAKE_STATIONS if s["owl:sameAs"].startswith(f"odpt.Station:{code}.")]
         if data_type == vocab.TRAIN:
             code = filters["odpt:operator"].split(":")[1]
             return [t for t in FAKE_TRAINS if t["odpt:railway"].split(":")[1].startswith(code + ".")]
@@ -109,6 +141,39 @@ def test_unknown_operator(client):
     assert response.status_code == 404
     assert "Supported" in response.json()["detail"]
     assert client.get("/api/v1/stations?operator=TokyoMetro").status_code == 404
+
+
+def test_map_stations(client):
+    body = client.get("/api/v1/map/stations").json()
+
+    assert body["type"] == "FeatureCollection"
+    points = {f["properties"]["name"]: f for f in body["features"]}
+    assert set(points) == {"Shinjuku", "Yoyogi"}
+    assert points["Shinjuku"]["geometry"] == {"type": "Point", "coordinates": [139.70, 35.69]}
+    assert points["Shinjuku"]["properties"]["busy_level"] is not None
+    assert points["Yoyogi"]["properties"]["busy_level"] is None
+
+
+def test_map_stations_accepts_full_operator_id(client):
+    body = client.get("/api/v1/map/stations?operator=odpt.Operator:Keio").json()
+    assert [f["properties"]["operator"] for f in body["features"]] == ["Keio"]
+
+
+def test_facilities_is_empty_geojson_with_note(client):
+    body = client.get("/api/v1/facilities?operator=JR-East").json()
+    assert body["type"] == "FeatureCollection"
+    assert body["features"] == []
+    assert "not yet published" in body["note"]
+    assert client.get("/api/v1/facilities?operator=TokyoMetro").status_code == 404
+
+
+def test_facilities_at_frontend_path(client):
+    # Exact request made by frontend/src/hooks/useStationData.js
+    response = client.get("/facilities?operator=odpt.Operator: JR East", headers={"Origin": "http://localhost:5173"})
+
+    assert response.status_code == 200
+    assert response.json()["type"] == "FeatureCollection"
+    assert response.headers["access-control-allow-origin"] == "http://localhost:5173"
 
 
 def test_surveys_are_cached():

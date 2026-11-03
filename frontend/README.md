@@ -1,54 +1,16 @@
-# Frontend
+# React + Vite
 
-React app for Low-burden Mode Accessibility: station search and details, plus a
-Leaflet map for step-free paths. Libraries: React, Leaflet (`react-leaflet`) and
-React Query.
+This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
 
-## Run it
+Currently, two official plugins are available:
 
-You need Node 20.19+ or 22.12+ for the linter. The app itself also builds on
-Node 22.9 (Vite 6 is pinned for that reason).
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
 
-```bash
-# 1. Start the backend from the project root
-python main.py
+## React Compiler
 
-# 2. Start the frontend
-cd frontend
-npm install
-npm run dev        # http://localhost:5173, /api is proxied to the backend
-```
+The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
 
-To serve it from the backend at <http://127.0.0.1:8000>, run `npm run build`
-and restart the backend.
+## Expanding the Oxlint configuration
 
-## Structure
-
-```
-src/
-├── main.jsx                   # Mounts <App />
-├── App.jsx                    # The page: search box, station details, map
-├── StationMap.jsx             # Leaflet map of step-free paths (sample HokoNavi data for now)
-├── hooks/useStationData.js    # React Query hook for facilities (not wired up yet)
-├── api/
-│   ├── client.js              # Every backend call (getStations, getStation, getServiceStatus)
-│   └── useApi.js              # Hook: { data, error, loading } for any API call
-└── components/
-    ├── StationSearch.jsx      # Station name input with suggestions
-    ├── StationDetail.jsx      # Congestion, line status, facilities for one station
-    └── LineStatusList.jsx     # List of lines and their live status
-```
-
-## Working on it
-
-- **New data:** add a function to `api/client.js`, then use it in a component
-  with `useApi`. Don't call `fetch` directly from components.
-- **Response shapes:** see the comments in `api/client.js`, or try the endpoints
-  at <http://127.0.0.1:8000/api/docs>.
-- **Styling and routing:** none yet; add whichever library the team picks.
-
-## Data limits
-
-- Congestion covers 8 operators (JR East, Tobu, Tokyu, Seibu, Keikyu, Keio, Odakyu, Sotetsu), as one level per station. Tokyo Metro and Toei have no passenger counts in the challenge API.
-- `facilities` is always `null` for now, because ODPT hasn't published it.
-- Line status text is Japanese only.
+If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.

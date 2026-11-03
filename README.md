@@ -59,9 +59,8 @@ Keio; line status exists for all but Odakyu and Sotetsu.
 
 - `react` and `react-dom`
 - `vite` (v6, pinned so it runs on Node 22.9): dev server and build
+- `leaflet`, `react-leaflet`, `@tanstack/react-query`
 - `oxlint`: linter (needs Node 20.19+ or 22.12+)
-
-No styling, routing or UI library yet; the frontend team will choose these.
 
 ## Roadmap
 
@@ -69,7 +68,8 @@ No styling, routing or UI library yet; the frontend team will choose these.
 - [x] Station congestion endpoint (yearly busy level plus live delays and status)
 - [x] Tests for congestion logic and API endpoints
 - [x] 8 operators supported, ranked against each other
-- [x] Starter React website (operator and station search, station details)
+- [x] React website (frontend team): HokoNavi map with sample step-free path
+- [x] Backend connected to the frontend's facilities hook
 - [ ] Station facilities, once ODPT publishes `odpt:StationFacility`
 - [ ] Tokyo Metro and Toei congestion, if ODPT adds their passenger counts
 - [ ] Styling and design for the website
@@ -133,8 +133,23 @@ npm run dev     # http://localhost:5173, /api is sent to the backend
 ```
 
 To serve the website from the backend at <http://127.0.0.1:8000>, run
-`npm run build` in `frontend/` and restart the backend. More detail for the
-frontend team is in [`frontend/README.md`](frontend/README.md).
+`npm run build` in `frontend/` and restart the backend.
+
+### Frontend ↔ backend connection
+
+The frontend is owned by the frontend team; the backend adapts to what it calls.
+
+| Frontend code | Calls | Backend |
+| --- | --- | --- |
+| `frontend/src/hooks/useStationData.js` → `useStationFacilities` | `http://127.0.0.1:8000/facilities?operator=odpt.Operator: JR East` | `/facilities` (same handler as `/api/v1/facilities`) |
+| `frontend/src/hooks/useStationData.js` → `useOperators` | `/api/v1/operators` | Operator dropdown |
+| `frontend/src/hooks/useStationData.js` → `useMapStations` | `/api/v1/map/stations?operator=JR-East` | Station pins, station search suggestions, busy-level filter |
+| `frontend/src/hooks/useStationData.js` → `useStation` | `/api/v1/stations/{operator}/{name}` | `StationDetail.jsx` panel after clicking a station |
+
+- Operators are accepted as `JR-East`, `JR East`, `odpt.Operator:JR-East` or `odpt.Operator: JR East`.
+- CORS allows `http://localhost:5173` (the Vite dev server); change `CORS_ORIGINS` for other hosts.
+- `frontend/vite.config.js` also forwards `/api` to the backend in dev, for relative URLs.
+- The other `/api/v1/...` endpoints are ready for the frontend to use when needed.
 
 ## API endpoints
 
@@ -144,6 +159,9 @@ frontend team is in [`frontend/README.md`](frontend/README.md).
 | GET    | `/api/v1/operators`       | Supported operators                                       |
 | GET    | `/api/v1/stations`        | Stations for an operator (`?operator=Keio`, JR East default) |
 | GET    | `/api/v1/stations/{operator}/{name}` | Congestion and live line status for one station |
+| GET    | `/api/v1/map/stations`    | Stations as GeoJSON points with busy level (`?operator=`), for the map |
+| GET    | `/api/v1/facilities`      | Step-free paths as GeoJSON (`?operator=`); empty until ODPT publishes them |
+| GET    | `/facilities`             | Same as above, at the path the frontend hook calls        |
 | GET    | `/api/v1/service-status`  | Live status for every line ODPT reports                   |
 
 ```bash
@@ -174,9 +192,8 @@ errors or logs.
 │       └── routes/          # health.py, stations.py
 ├── frontend/                # React website (see frontend/README.md)
 │   └── src/
-│       ├── App.jsx          # The page
-│       ├── api/             # Backend calls (client.js) and useApi hook
-│       └── components/      # StationSearch, StationDetail, LineStatusList
+│       ├── App.jsx, StationMap.jsx, StationDetail.jsx
+│       └── hooks/           # useStationData.js: calls the backend
 ├── tests/                   # pytest suite
 ├── requirements.txt         # Runtime dependencies
 ├── requirements-dev.txt     # + test tools

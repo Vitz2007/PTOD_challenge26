@@ -25,5 +25,10 @@ def operator_id(code: str) -> str:
 
 
 def resolve_operator(code: str) -> str | None:
-    """Canonical operator code for a case-insensitive match, or None if unsupported."""
-    return next((c for c in OPERATORS if c.lower() == code.strip().lower()), None)
+    """Canonical operator code for a case-insensitive match, or None if unsupported.
+
+    Accepts the code ("JR-East"), the display name ("JR East") and the full ODPT id,
+    with or without a space after the colon ("odpt.Operator:JR-East", "odpt.Operator: JR East").
+    """
+    code = code.strip().removeprefix("odpt.Operator:").strip().lower()
+    return next((c for c, name in OPERATORS.items() if code in (c.lower(), name.lower())), None)

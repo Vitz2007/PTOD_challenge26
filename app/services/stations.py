@@ -5,7 +5,19 @@ from app.cache import TTLCache
 from app.config import Settings
 from app.odpt import vocab
 from app.odpt.client import ODPTClient
-from app.schemas import Congestion, LineStatus, LocalizedName, Operator, StationDetail, StationSummary
+from app.schemas import (
+    Congestion,
+    FacilityFeatureCollection,
+    LineStatus,
+    LocalizedName,
+    MapStationProperties,
+    Operator,
+    PointGeometry,
+    StationDetail,
+    StationFeature,
+    StationFeatureCollection,
+    StationSummary,
+)
 from app.services.congestion import SurveyStat, average_delay_minutes, rank_surveys
 
 FACILITIES_NOTE = "Station facility data is not yet published by the ODPT challenge API."
@@ -69,6 +81,39 @@ class StationService:
             self._settings.static_cache_seconds, vocab.STATION, **{"odpt:operator": vocab.operator_id(code)}
         )
         return [StationSummary(id=r["owl:sameAs"], name=_name(r), railway=r.get("odpt:railway")) for r in records]
+
+    async def map_stations(self, operator: str = vocab.DEFAULT_OPERATOR) -> StationFeatureCollection:
+        """Stations as map points, each with its busy level when there is a survey."""
+        code = _operator(operator)
+        records, surveys = await asyncio.gather(
+            self._fetch(self._settings.static_cache_seconds, vocab.STATION, **{"odpt:operator": vocab.operator_id(code)}),
+            self._surveys(),
+        )
+
+        features: dict[str, StationFeature] = {}  # one point per station, even with several lines
+        for record in records:
+            name = record["owl:sameAs"].split(".")[-1]
+            if name.lower() in features or record.get("geo:lat") is None or record.get("geo:long") is None:
+                continue
+            stat = surveys.get((code, name.lower()))
+            features[name.lower()] = StationFeature(
+                geometry=PointGeometry(coordinates=(record["geo:long"], record["geo:lat"])),
+                properties=MapStationProperties(
+                    operator=code,
+                    name=name,
+                    name_en=_name(record).en,
+                    name_ja=_name(record).ja,
+                    busy_level=stat.busy_level if stat else None,
+                    passengers_per_day=stat.passengers_per_day if stat else None,
+                ),
+            )
+        return StationFeatureCollection(features=list(features.values()))
+
+    @staticmethod
+    def facilities(operator: str = vocab.DEFAULT_OPERATOR) -> FacilityFeatureCollection:
+        """Step-free paths and facilities as GeoJSON. Empty until ODPT publishes the data."""
+        _operator(operator)
+        return FacilityFeatureCollection(note=FACILITIES_NOTE)
 
     async def service_status(self, railways: set[str] | None = None) -> list[LineStatus]:
         records = await self._fetch(self._settings.live_cache_seconds, vocab.TRAIN_INFORMATION)

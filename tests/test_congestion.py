@@ -1,3 +1,4 @@
+from app.odpt.vocab import resolve_operator
 from app.schemas import BusyLevel
 from app.services.congestion import average_delay_minutes, busy_level, latest_survey, rank_surveys, survey_key
 
@@ -67,3 +68,9 @@ def test_rank_surveys_skips_stations_without_data():
 def test_average_delay_minutes():
     assert average_delay_minutes([]) is None
     assert average_delay_minutes([{"odpt:delay": 120}, {"odpt:delay": None}]) == 1.0
+
+
+def test_resolve_operator_accepts_all_forms():
+    for form in ["JR-East", "jr east", "odpt.Operator:JR-East", "odpt.Operator: JR East"]:
+        assert resolve_operator(form) == "JR-East"
+    assert resolve_operator("TokyoMetro") is None

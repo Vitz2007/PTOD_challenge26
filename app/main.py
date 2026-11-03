@@ -43,6 +43,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(health.router, prefix="/api")
     app.include_router(stations.router, prefix="/api/v1")
 
+    # The frontend's facilities hook (frontend/src/hooks/useStationData.js) calls /facilities
+    app.add_api_route("/facilities", stations.facilities, tags=["frontend"], include_in_schema=True)
+
     # Serve the built React app at / (after `npm run build` in frontend/)
     if settings.frontend_dist.exists():
         app.mount("/", StaticFiles(directory=settings.frontend_dist, html=True), name="frontend")

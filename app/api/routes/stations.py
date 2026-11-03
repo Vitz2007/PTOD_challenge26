@@ -4,7 +4,14 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.api.deps import get_station_service
 from app.odpt import vocab
-from app.schemas import LineStatus, Operator, StationDetail, StationSummary
+from app.schemas import (
+    FacilityFeatureCollection,
+    LineStatus,
+    Operator,
+    StationDetail,
+    StationFeatureCollection,
+    StationSummary,
+)
 from app.services.stations import StationNotFound, StationService, UnknownOperator
 
 router = APIRouter(tags=["stations"])
@@ -40,6 +47,24 @@ async def get_station(operator: str, name: str, service: Service):
         raise unknown_operator(operator) from None
     except StationNotFound:
         raise HTTPException(404, f"No {operator} station called '{name}'") from None
+
+
+@router.get("/map/stations", response_model=StationFeatureCollection)
+async def map_stations(service: Service, operator: str = vocab.DEFAULT_OPERATOR):
+    """Stations as GeoJSON points with their busy level, for the map."""
+    try:
+        return await service.map_stations(operator)
+    except UnknownOperator:
+        raise unknown_operator(operator) from None
+
+
+@router.get("/facilities", response_model=FacilityFeatureCollection)
+async def facilities(service: Service, operator: str = vocab.DEFAULT_OPERATOR):
+    """Step-free paths and facilities as GeoJSON (empty until ODPT publishes them)."""
+    try:
+        return service.facilities(operator)
+    except UnknownOperator:
+        raise unknown_operator(operator) from None
 
 
 @router.get("/service-status", response_model=list[LineStatus])

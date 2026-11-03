@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Any, Literal
 
 from pydantic import BaseModel
 
@@ -53,6 +54,40 @@ class StationDetail(BaseModel):
     service_status: list[LineStatus]
     facilities: list[Facility] | None = None
     notes: list[str] = []
+
+
+# GeoJSON, the format the frontend map (react-leaflet <GeoJSON>) reads directly
+
+
+class PointGeometry(BaseModel):
+    type: Literal["Point"] = "Point"
+    coordinates: tuple[float, float]  # [longitude, latitude], GeoJSON order
+
+
+class MapStationProperties(BaseModel):
+    operator: str
+    name: str  # use with /stations/{operator}/{name}
+    name_en: str | None = None
+    name_ja: str | None = None
+    busy_level: BusyLevel | None = None  # None: no passenger survey for this station
+    passengers_per_day: int | None = None
+
+
+class StationFeature(BaseModel):
+    type: Literal["Feature"] = "Feature"
+    geometry: PointGeometry
+    properties: MapStationProperties
+
+
+class StationFeatureCollection(BaseModel):
+    type: Literal["FeatureCollection"] = "FeatureCollection"
+    features: list[StationFeature]
+
+
+class FacilityFeatureCollection(BaseModel):
+    type: Literal["FeatureCollection"] = "FeatureCollection"
+    features: list[dict[str, Any]] = []
+    note: str | None = None
 
 
 class Health(BaseModel):
