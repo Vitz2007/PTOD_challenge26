@@ -4,3 +4,35 @@
     height: 600px;
     z-index: 1;
 }
+
+/* Have the button appear above the map */
+.zen-toggle-btn {
+    position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  padding: 16px 32px;
+  font-size: 1.25rem;
+  font-weight: bold;
+  color: white;
+  background: #10b981; /* Calming green */
+  border: none;
+  border-radius: 50px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.zen-toggle-btn:hover {
+  transform: translateX(-50%) scale(1.05);
+}
+
+.zen-toggle-btn.active {
+  background: #8b5cf6; /* Switch to purple when active */
+}
+
+/* Add a glowing drop shadow to the step-free paths */
+.glowing-path {
+  filter: drop-shadow(0 0 6px rgba(0, 255, 255, 0.8));
+}
