@@ -14,19 +14,27 @@ luggage, older travellers, and anyone who wants to avoid crowds.
 
 ## Datasets
 
-All data comes from the ODPT API (`https://api-challenge.odpt.org/api/v4`).
+All data comes from the ODPT challenge API (`https://api-challenge.odpt.org/api/v4`).
+Checked with our key on 2026-11-03:
 
-| Need                   | ODPT data type          | Status      |
-| ---------------------- | ----------------------- | ----------- |
-| Station-level detail   | `odpt:Station`          | Wired up (`/stations`) |
-| Accessibility          | `odpt:StationFacility`  | Planned     |
-| Congestion (baseline)  | `odpt:PassengerSurvey`  | Wired up (`/passengers`) |
-| Congestion (real-time) | `odpt:TrainInformation` | Wired up (`/train-info`) |
+| Need                   | ODPT data type          | Available?                                   |
+| ---------------------- | ----------------------- | -------------------------------------------- |
+| Station-level detail   | `odpt:Station`          | Yes, for all major operators                 |
+| Congestion (baseline)  | `odpt:PassengerSurvey`  | 8 operators, 1,184 stations (see below)      |
+| Congestion (live)      | `odpt:Train`, `odpt:TrainInformation` | Yes (delays and line status, Japanese text) |
+| Accessibility          | `odpt:StationFacility`  | **No**: returns 404; the dump file is not published yet |
 
-`odpt:StationFacility` holds barrier-free details per station (elevators,
-escalators, slopes, accessible toilets and similar). Check the
-[ODPT API specification](https://developer.odpt.org/) for which operators
-publish it and which fields they fill in.
+Passenger counts exist for **JR East, Tobu, Tokyu, Seibu, Keikyu, Keio, Odakyu
+and Sotetsu**. Tokyo Metro, Toei and the smaller lines have none, so they are not
+supported yet. JR East counts people getting on only; the others count on and
+off, so JR East figures are doubled when ranking stations against each other.
+
+Congestion is a level for the whole station (busy / normal / quiet). Station
+facilities return `null` until ODPT publishes the data. Crowding inside a station
+and open space have no source in the API.
+
+Live data varies by operator: train delays exist for JR East, Tobu, Keikyu and
+Keio; line status exists for all but Odakyu and Sotetsu.
 
 ## Tech stack
 
@@ -44,23 +52,27 @@ publish it and which fields they fill in.
 - `fastapi`: web framework for the API
 - `uvicorn`: server that runs the app
 - `httpx`: async HTTP client for calling ODPT
-- `python-dotenv`: loads the ODPT key from `.env`
+- `pydantic-settings`: typed settings from environment variables and `.env`
+- `pytest` (dev only, in `requirements-dev.txt`): tests
 
-**Frontend (React):** planned, not set up yet
+**Frontend (React):** in `frontend/package.json`
 
-- `vite`: project scaffolding and dev server
 - `react` and `react-dom`
-- A data-fetching helper such as `fetch` or `@tanstack/react-query`
-- A map or floor-plan view for showing facilities and crowded areas
-  (to be chosen)
+- `vite` (v6, pinned so it runs on Node 22.9): dev server and build
+- `oxlint`: linter (needs Node 20.19+ or 22.12+)
+
+No styling, routing or UI library yet; the frontend team will choose these.
 
 ## Roadmap
 
-- [x] FastAPI backend with a shared ODPT client helper
-- [x] Endpoints for stations, passenger surveys and live train information
-- [ ] `/facilities` endpoint for `odpt:StationFacility`
-- [ ] Combine station, facility and congestion data per station
-- [ ] Set up the React website (Vite) and connect it to the backend
+- [x] FastAPI backend split into config, ODPT client, cache, services and routes
+- [x] Station congestion endpoint (yearly busy level plus live delays and status)
+- [x] Tests for congestion logic and API endpoints
+- [x] 8 operators supported, ranked against each other
+- [x] Starter React website (operator and station search, station details)
+- [ ] Station facilities, once ODPT publishes `odpt:StationFacility`
+- [ ] Tokyo Metro and Toei congestion, if ODPT adds their passenger counts
+- [ ] Styling and design for the website
 - [ ] Station view: list of elevators, escalators, slopes and step-free paths
 - [ ] Congestion view: highlight crowded areas and suggest open spaces
 - [ ] Port to an iOS app
@@ -70,7 +82,8 @@ publish it and which fields they fill in.
 ### Requirements
 
 - Python 3.10+
-- An ODPT Challenge consumer key (register at the challenge site to get one)
+- Node 20.19+ or 22.12+ (22.9 works, except the linter)
+- An ODPT Challenge consumer key
 - VS Code (recommended), with the Python extension
 
 ### Backend setup
@@ -78,82 +91,102 @@ publish it and which fields they fill in.
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
+cp .env.example .env   # then put your key in .env
 ```
-
-Create a `.env` file in the project root with your key:
-
-```env
-ODPT_CONSUMER_KEY=your_consumer_key_here
-```
-
-`.env` is git-ignored, so the key stays out of version control.
 
 ### Running the backend
 
 ```bash
-python main.py
+python main.py                                   # development, auto-reload
+uvicorn app.main:app --host 0.0.0.0 --port 8000  # production
 ```
 
-or
+API docs: <http://127.0.0.1:8000/api/docs>
+
+### Running the tests
 
 ```bash
-uvicorn main:app --reload
+pytest
 ```
 
-The server starts at <http://127.0.0.1:8000>. Interactive API docs are available
-at <http://127.0.0.1:8000/docs>.
+The tests use a fake ODPT client, so they need no network or key.
 
-### Frontend setup (planned)
+### Configuration
 
-Once the React app is added, it will be created with Vite in a `frontend/`
-folder:
+Settings are read from environment variables or `.env` (see `.env.example`):
+
+| Variable               | Default                                  | Purpose                              |
+| ---------------------- | ---------------------------------------- | ------------------------------------ |
+| `ODPT_CONSUMER_KEY`    | required                                 | ODPT API key                         |
+| `ODPT_BASE_URL`        | `https://api-challenge.odpt.org/api/v4`  | ODPT API address                     |
+| `LIVE_CACHE_SECONDS`   | `30`                                     | Reuse live train data for this long  |
+| `STATIC_CACHE_SECONDS` | `86400`                                  | Reuse station lists and surveys      |
+| `CORS_ORIGINS`         | `["http://localhost:5173"]`              | Frontend addresses allowed to call the API |
+
+### Frontend setup
 
 ```bash
-npm create vite@latest frontend -- --template react
 cd frontend
 npm install
-npm run dev
+npm run dev     # http://localhost:5173, /api is sent to the backend
 ```
+
+To serve the website from the backend at <http://127.0.0.1:8000>, run
+`npm run build` in `frontend/` and restart the backend. More detail for the
+frontend team is in [`frontend/README.md`](frontend/README.md).
 
 ## API endpoints
 
-| Method | Path          | Query params                                    | ODPT data type          | Description                                        |
-| ------ | ------------- | ----------------------------------------------- | ----------------------- | -------------------------------------------------- |
-| GET    | `/stations`   | `operator` (default `odpt.Operator:TokyoMetro`) | `odpt:Station`          | Stations for an operator, including names per line |
-| GET    | `/passengers` | `operator` (default `odpt.Operator:JR-East`)    | `odpt:PassengerSurvey`  | Daily passenger counts per station                 |
-| GET    | `/train-info` | none                                            | `odpt:TrainInformation` | Live delay and suspension information per line     |
-
-### Examples
+| Method | Path                      | Description                                               |
+| ------ | ------------------------- | --------------------------------------------------------- |
+| GET    | `/api/health`             | Liveness check                                            |
+| GET    | `/api/v1/operators`       | Supported operators                                       |
+| GET    | `/api/v1/stations`        | Stations for an operator (`?operator=Keio`, JR East default) |
+| GET    | `/api/v1/stations/{operator}/{name}` | Congestion and live line status for one station |
+| GET    | `/api/v1/service-status`  | Live status for every line ODPT reports                   |
 
 ```bash
-curl "http://127.0.0.1:8000/stations"
-curl "http://127.0.0.1:8000/stations?operator=odpt.Operator:Toei"
-curl "http://127.0.0.1:8000/passengers?operator=odpt.Operator:TokyoMetro"
-curl "http://127.0.0.1:8000/train-info"
+curl http://127.0.0.1:8000/api/v1/stations/Keio/Shinjuku
 ```
 
-Responses are passed through unchanged from the ODPT API (JSON-LD). Upstream
-errors are raised as HTTP errors; requests time out after 20 seconds.
-
-### Adding endpoints
-
-All endpoints go through the `odpt(data_type, **filters)` helper in `main.py`,
-which adds the consumer key and forwards any filters as query parameters. For
-example, the planned facilities endpoint could look like this:
-
-```python
-@app.get("/facilities")
-async def facilities(operator: str = "odpt.Operator:TokyoMetro"):
-    return await odpt("odpt:StationFacility", **{"odpt:operator": operator})
-```
+ODPT failures return `502` with a short message. The API key never appears in
+errors or logs.
 
 ## Project structure
 
 ```
 .
-├── main.py           # FastAPI app and ODPT client helper
-├── requirements.txt  # Python dependencies
-├── .env              # Your ODPT consumer key (not committed)
-└── frontend/         # React app (planned)
+├── main.py                  # Dev entrypoint (python main.py)
+├── app/
+│   ├── main.py              # create_app(): routers, CORS, errors, frontend
+│   ├── config.py            # Settings from env / .env
+│   ├── cache.py             # In-memory TTL cache (swap for Redis to scale out)
+│   ├── schemas.py           # Response models
+│   ├── odpt/
+│   │   ├── client.py        # ODPT API client
+│   │   └── vocab.py         # ODPT identifiers
+│   ├── services/
+│   │   ├── congestion.py    # Busy-level logic (pure functions)
+│   │   └── stations.py      # Combines ODPT data per station
+│   └── api/
+│       ├── deps.py          # Dependency injection
+│       └── routes/          # health.py, stations.py
+├── frontend/                # React website (see frontend/README.md)
+│   └── src/
+│       ├── App.jsx          # The page
+│       ├── api/             # Backend calls (client.js) and useApi hook
+│       └── components/      # StationSearch, StationDetail, LineStatusList
+├── tests/                   # pytest suite
+├── requirements.txt         # Runtime dependencies
+├── requirements-dev.txt     # + test tools
+└── .env.example             # Settings template
 ```
+
+### Adding a feature
+
+1. Add the ODPT data type to `app/odpt/vocab.py`.
+2. Put the logic in a service under `app/services/`, using `ODPTClient` and the cache.
+3. Add response models to `app/schemas.py`.
+4. Add a route under `app/api/routes/` and register it in `app/main.py`.
+5. Add tests under `tests/`.
