@@ -1,38 +1,72 @@
-.leaflet-container {
-    /* Set dimensions to prevent the map from being too small or too large */
-    width: 100%;
-    height: 600px;
-    z-index: 1;
-}
+.map-wrapper { position: relative; width: 100%; height: 100vh; overflow: hidden; }
 
-/* Have the button appear above the map */
-.zen-toggle-btn {
-    position: absolute;
-  bottom: 40px;
+/* Responsive Smart Hub Card: Bottom sheet on mobile, floating bottom-left on desktop */
+.smart-hub-card {
+  position: absolute;
+  bottom: 16px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 1000;
-  padding: 16px 32px;
-  font-size: 1.25rem;
-  font-weight: bold;
+  width: 92%;
+  max-width: 440px;
+  background: rgba(15, 23, 42, 0.92);
+  backdrop-filter: blur(10px);
+  padding: 14px;
+  border-radius: 24px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+@media (min-width: 768px) {
+  .smart-hub-card { left: 24px; bottom: 24px; transform: none; }
+}
+
+.station-strip, .floor-strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.station-pill, .floor-pill {
+  border: 2px solid transparent;
   color: white;
-  background: #10b981; /* Calming green */
-  border: none;
-  border-radius: 50px;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.3s ease;
+  white-space: nowrap;
+  background: #1e293b;
 }
 
-.zen-toggle-btn:hover {
-  transform: translateX(-50%) scale(1.05);
+.station-pill.active { background: #3b82f6; }
+.floor-pill.active { transform: scale(1.06); box-shadow: 0 0 10px rgba(255,255,255,0.3); }
+
+/* Depth-Ring Elevator Pin */
+.depth-ring-pin {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 4px solid #10b981;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  box-shadow: 0 0 12px rgba(0,0,0,0.5);
 }
 
-.zen-toggle-btn.active {
-  background: #8b5cf6; /* Switch to purple when active */
+.popup-floor-btns { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.popup-floor-btns button {
+  border: none; color: white; font-weight: bold; padding: 6px 10px; border-radius: 8px; cursor: pointer;
 }
 
-/* Add a glowing drop shadow to the step-free paths */
-.glowing-path {
-  filter: drop-shadow(0 0 6px rgba(0, 255, 255, 0.8));
+.zen-toggle-btn {
+  width: 100%; padding: 14px; border-radius: 16px; border: none;
+  font-size: 1.05rem; font-weight: 800; color: white;
+  background: #10b981; cursor: pointer;
 }
+.zen-toggle-btn.active { background: #8b5cf6; }
+.glowing-path { filter: drop-shadow(0 0 6px rgba(0, 255, 255, 0.85)); }
+.loading-txt { color: #94a3b8; font-size: 0.9rem; padding: 6px; }
